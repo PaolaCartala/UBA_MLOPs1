@@ -1,99 +1,81 @@
-# UBA_MLOPs1
+# Plan de Trabajo Final – MLOps 1
 
-# 🛒 Predicción de Ventas para Tienda Minorista
-
-Este proyecto implementa un pipeline completo para el entrenamiento, evaluación y despliegue de modelos predictivos de ventas diarias para una tienda minorista localizada en una única localidad. Todo el flujo sigue buenas prácticas de MLOps, incluyendo almacenamiento en MinIO y ejecución mediante DAGs.
+**Implementación de un sistema productivo de predicción de ventas con MLOps**
 
 ---
 
-## 🎯 1. Objetivo del Proyecto
+## Modelo base
 
-Construir un modelo de predicción robusto que permita anticipar las ventas del próximo mes utilizando datos históricos. Las predicciones generadas se aplican en:
-
-- Optimización de inventario.
-- Planificación de promociones.
-- Asignación eficiente de personal.
+- El trabajo se basa en el modelo desarrollado en el notebook `prediccion_ventas.ipynb`.
+- El modelo predice ventas futuras en función de variables como tienda, producto, día de la semana, promociones, precios, entre otros.
+- Se trata de un problema de regresión.
 
 ---
 
-## ⚙️ 2. Flujo de Entrenamiento del Modelo (DAG)
+## Componentes del sistema
 
-El proceso de entrenamiento está organizado como un DAG que asegura ejecución reproducible y escalable.
+### 1. Infraestructura con Docker Compose
 
-### 📌 Pasos del DAG de entrenamiento:
+Se levantará un entorno productivo compuesto por múltiples servicios:
 
-1. **Carga de datos desde MinIO**
-   - Se descarga el archivo `Ventas.csv` desde un bucket S3/MinIO configurado.
-
-2. **Preprocesamiento**
-   - Conversión de fechas.
-   - Normalización con `MinMaxScaler`.
-   - Feature engineering básico.
-
-3. **División del dataset**
-   - Separación en entrenamiento y prueba (70/30).
-
-4. **Entrenamiento de modelos**
-   - Regresión Lineal.
-   - Árbol de Decisión.
-   - Random Forest.
-   - Comparación mediante métricas $R^2$ y RMSE.
-
-5. **Generación de visualizaciones**
-   - Histogramas, boxplots, comparaciones modelo vs realidad.
-   - Gráficos de predicción temporal.
-
-6. **Registro del modelo**
-   - Serialización del modelo (`.pkl`).
-   - Exportación de métricas y gráficos como artefactos.
+- **Apache Airflow**: para orquestar procesos de ETL y reentrenamiento del modelo.
+- **MLflow**: para trackear experimentos, métricas e hiperparámetros.
+- **MinIO**: para guardar datasets procesados, artefactos del modelo y metadatos.
+- **PostgreSQL**: base de datos utilizada por Airflow y MLflow.
+- **FastAPI**: para desplegar el modelo vía una API REST.
+- **Streamlit**: para ofrecer una interfaz visual amigable a usuarios no técnicos.
 
 ---
 
-## ☁️ 3. Integración con MinIO
+### 2. Entrenamiento y experimentación
 
-MinIO funciona como sistema de almacenamiento para datos, modelos y artefactos del proyecto.
-
-### Flujo con MinIO:
-
-1. **Upload inicial**
-   - Se sube `Ventas.csv` al bucket `dataset-predicciones/ventas/`.
-
-2. **Descarga por el DAG**
-   - El DAG descarga el dataset con credenciales de entorno seguras.
-
-3. **Exportación de resultados**
-   - Modelos `.pkl` y visualizaciones se suben a `modelos/ventas/`.
-
-4. **Automatización futura**
-   - El DAG puede extenderse para reentrenar automáticamente cuando se detecten nuevos datos.
+- Se desarrollará un notebook basado en `prediccion_ventas.ipynb` para:
+  - Carga y limpieza de datos.
+  - Feature engineering y normalización.
+  - Entrenamiento del modelo.
+  - Optimización de hiperparámetros (Optuna, si aplica).
+  - Registro de experimentos, métricas y artefactos en MLflow.
+  - Almacenamiento de datos y archivo `data.json` en MinIO.
 
 ---
 
-## 📊 4. Visualizaciones Generadas
+### 3. DAGs de Airflow
 
-Las siguientes figuras se producen y almacenan en `./Salidas`:
+#### `process_etl_sales_data.py`
+- Descarga o carga los datos brutos.
+- Realiza limpieza, creación de dummies y estandarización.
+- Divide en train/test y guarda en MinIO.
+- Loguea el proceso completo en MLflow.
 
-1. **1_distribucion_y_dias.png**  
-   - Histograma de ventas  
-   - Promedio por día de la semana
-
-2. **2_boxplots_comparativos.png**  
-   - Boxplots por promociones y festivos
-
-3. **3_pred_vs_real_modelos.png**  
-   - Comparación real vs. predicho para 3 modelos
-
-4. **4_comparacion_temporal_modelos.png**  
-   - Predicción temporal para los 3 modelos
+#### `retrain_sales_model.py`
+- Carga los datos procesados desde MinIO.
+- Entrena un nuevo modelo ("challenger").
+- Evalúa contra el modelo actual ("champion").
+- Promueve al nuevo modelo si mejora la métrica.
 
 ---
 
-## 📁 5. Estructura del Proyecto
+### 4. API con FastAPI
 
-```bash
-prediccion-ventas/
-├── 📂 Datos/                      # Datos crudos (opcional si se usa MinIO)
-├── 📂 Modelos/                    # Modelos entrenados (.pkl)
-├── 📂 Salidas/                    # Figuras generadas desde notebook
-├── 📜 prediccion_ventas.ipynb     # Notebook exploratorio y de pruebas
-├── 📜 README.md                   # Este archivo
+- Se implementará una API REST en FastAPI para exponer el modelo predictivo.
+- Se conectará con MLflow para obtener el modelo en producción y realizar inferencias.
+
+#### Endpoints tentativos:
+
+- `GET /health`: Verifica que la API esté corriendo correctamente.
+- `POST /predict`: Recibe datos estructurados y devuelve la predicción del modelo.
+- `GET /docs`: Provee documentación interactiva (Swagger).
+- `GET /historical-predictions`: Devuelve un historial de predicciones realizadas.
+
+La API se montará en el contenedor `fastapi` y expondrá el puerto `8800`.
+
+---
+
+### 5. Interfaz Web con Streamlit
+
+- Se desarrollará una app con Streamlit que consuma los endpoints de la API.
+- Permitirá a usuarios no técnicos:
+  - Cargar datos manualmente o desde archivos.
+  - Obtener predicciones de forma interactiva.
+  - Visualizar los resultados con gráficos dinámicos.
+- La app se ejecutará como servicio aparte y se conectará vía HTTP a la API de FastAPI.

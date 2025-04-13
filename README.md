@@ -1,4 +1,4 @@
-# Plan de Trabajo Final – MLOps 1
+# Plan de Trabajo Final – OAA 1
 
 **Implementación de un sistema productivo de predicción de ventas con MLOps**
 

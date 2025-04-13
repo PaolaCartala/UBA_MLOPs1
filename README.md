@@ -1,69 +1,99 @@
 # UBA_MLOPs1
 
-# Proyecto MLOps: Modelo predictivo de ventas - Evaluación de para tienda Minorista
+# 🛒 Predicción de Ventas para Tienda Minorista
 
-Este proyecto forma parte de una pipeline de desarrollo y despliegue de modelos de machine learning en entornos productivos. El objetivo es construir un modelo robusto capaz de predecir el total de ventas mensuales de una tienda minorista, a partir de datos históricos diarios.
+Este proyecto implementa un pipeline completo para el entrenamiento, evaluación y despliegue de modelos predictivos de ventas diarias para una tienda minorista localizada en una única localidad. Todo el flujo sigue buenas prácticas de MLOps, incluyendo almacenamiento en MinIO y ejecución mediante DAGs.
 
-El sistema se integrará en una arquitectura MLOps donde los artefactos del modelo, la trazabilidad de experimentos, y las métricas estarán disponibles para auditoría y versionado.
+---
 
--------------------------------------------------------------------------------
-🔧 FASES DEL DESARROLLO DEL MODELO
+## 🎯 1. Objetivo del Proyecto
 
-## 1. Ingesta y Preparación de Datos
-- Fuente: CSV / base de datos.
-- Procesos:
-    - Validación de esquema y tipos de datos.
-    - Imputación de valores faltantes.
-    - Codificación de variables categóricas si aplica.
-    - División en conjuntos de entrenamiento, validación y test.
+Construir un modelo de predicción robusto que permita anticipar las ventas del próximo mes utilizando datos históricos. Las predicciones generadas se aplican en:
 
-## 2. Análisis Exploratorio de Datos (EDA)
-- Análisis visual y estadístico de distribución de ventas.
-- Evaluación de correlaciones entre variables predictoras y objetivo.
-- Agrupamientos temporales: comparativas entre días hábiles, festivos y fines de semana.
-- Identificación de outliers o patrones estacionales.
+- Optimización de inventario.
+- Planificación de promociones.
+- Asignación eficiente de personal.
 
-## 3. Entrenamiento de Modelos Base
-- Modelos evaluados:
-    - `LinearRegression()`
-    - `DecisionTreeRegressor()`
-    - `RandomForestRegressor()`
-    - *(opcional: agregar Lasso, XGBoost, etc.)*
-- Métricas:
-    - Coeficiente de determinación: R²
-    - Error cuadrático medio (RMSE)
-    - Error absoluto medio (MAE)
-- Técnicas:
-    - Búsqueda de hiperparámetros (`GridSearchCV` / `RandomizedSearchCV`)
-    - Validación cruzada (`cross_val_score`)
+---
 
-## 4. Evaluación y Visualización
-- Generación de reportes con métricas para cada modelo.
-- Gráficos de comparación: ventas reales vs predichas.
-- Análisis de errores por categoría y por horizonte temporal.
+## ⚙️ 2. Flujo de Entrenamiento del Modelo (DAG)
 
-## 5. Empaquetado del Modelo
-- Serialización del mejor modelo (`joblib` o `pickle`).
-- Exportación de métricas y visualizaciones.
-- Generación de archivo `requirements.txt` y documentación del entorno virtual.
+El proceso de entrenamiento está organizado como un DAG que asegura ejecución reproducible y escalable.
 
-## 6. Preparación para Producción (MLOps)
-- Scripts de inferencia reutilizables (`predict.py`)
-- Interfaz REST o CLI para consultas.
-- Documentación técnica y funcional en README.md
-- (Opcional) Integración con `MLflow` para seguimiento de experimentos.
-- (Opcional) Despliegue en contenedor Docker / pipeline CI/CD.
+### 📌 Pasos del DAG de entrenamiento:
 
--------------------------------------------------------------------------------
-🎯 OBJETIVO DEL MODELO
-Predecir el total de ventas para el mes siguiente en función de variables históricas,
-lo que permitirá a la tienda:
-- Optimizar su inventario.
-- Definir estrategias promocionales.
-- Asignar personal de forma eficiente.
+1. **Carga de datos desde MinIO**
+   - Se descarga el archivo `Ventas.csv` desde un bucket S3/MinIO configurado.
 
--------------------------------------------------------------------------------
-🧾 NOTAS ADICIONALES
-- Enfocado en reproducibilidad, modularidad y trazabilidad.
-- Compatible con flujos de trabajo de ciencia de datos y arquitectura MLOps.
-- Código limpio, comentado y preparado para pruebas automatizadas.
+2. **Preprocesamiento**
+   - Conversión de fechas.
+   - Normalización con `MinMaxScaler`.
+   - Feature engineering básico.
+
+3. **División del dataset**
+   - Separación en entrenamiento y prueba (70/30).
+
+4. **Entrenamiento de modelos**
+   - Regresión Lineal.
+   - Árbol de Decisión.
+   - Random Forest.
+   - Comparación mediante métricas $R^2$ y RMSE.
+
+5. **Generación de visualizaciones**
+   - Histogramas, boxplots, comparaciones modelo vs realidad.
+   - Gráficos de predicción temporal.
+
+6. **Registro del modelo**
+   - Serialización del modelo (`.pkl`).
+   - Exportación de métricas y gráficos como artefactos.
+
+---
+
+## ☁️ 3. Integración con MinIO
+
+MinIO funciona como sistema de almacenamiento para datos, modelos y artefactos del proyecto.
+
+### Flujo con MinIO:
+
+1. **Upload inicial**
+   - Se sube `Ventas.csv` al bucket `dataset-predicciones/ventas/`.
+
+2. **Descarga por el DAG**
+   - El DAG descarga el dataset con credenciales de entorno seguras.
+
+3. **Exportación de resultados**
+   - Modelos `.pkl` y visualizaciones se suben a `modelos/ventas/`.
+
+4. **Automatización futura**
+   - El DAG puede extenderse para reentrenar automáticamente cuando se detecten nuevos datos.
+
+---
+
+## 📊 4. Visualizaciones Generadas
+
+Las siguientes figuras se producen y almacenan en `./Salidas`:
+
+1. **1_distribucion_y_dias.png**  
+   - Histograma de ventas  
+   - Promedio por día de la semana
+
+2. **2_boxplots_comparativos.png**  
+   - Boxplots por promociones y festivos
+
+3. **3_pred_vs_real_modelos.png**  
+   - Comparación real vs. predicho para 3 modelos
+
+4. **4_comparacion_temporal_modelos.png**  
+   - Predicción temporal para los 3 modelos
+
+---
+
+## 📁 5. Estructura del Proyecto
+
+```bash
+prediccion-ventas/
+├── 📂 Datos/                      # Datos crudos (opcional si se usa MinIO)
+├── 📂 Modelos/                    # Modelos entrenados (.pkl)
+├── 📂 Salidas/                    # Figuras generadas desde notebook
+├── 📜 prediccion_ventas.ipynb     # Notebook exploratorio y de pruebas
+├── 📜 README.md                   # Este archivo

@@ -1,69 +1,74 @@
 # UBA_MLOPs1
 
-# Proyecto MLOps: Modelo predictivo de ventas - Evaluación de para tienda Minorista
+# 🛒 Predicción de Ventas para Tienda Minorista
 
-Este proyecto forma parte de una pipeline de desarrollo y despliegue de modelos de machine learning en entornos productivos. El objetivo es construir un modelo robusto capaz de predecir el total de ventas mensuales de una tienda minorista, a partir de datos históricos diarios.
+Este proyecto implementa un pipeline de entrenamiento y despliegue de modelos de predicción de ventas diarias para una tienda minorista localizada en una única localidad. Se utiliza un único dataset y se estructura todo el flujo siguiendo prácticas de MLOps, incluyendo el uso de almacenamiento en MinIO y ejecución controlada mediante un DAG (Directed Acyclic Graph).
 
-El sistema se integrará en una arquitectura MLOps donde los artefactos del modelo, la trazabilidad de experimentos, y las métricas estarán disponibles para auditoría y versionado.
+---
 
--------------------------------------------------------------------------------
-🔧 FASES DEL DESARROLLO DEL MODELO
+## 🎯 Objetivo
 
-## 1. Ingesta y Preparación de Datos
-- Fuente: CSV / base de datos.
-- Procesos:
-    - Validación de esquema y tipos de datos.
-    - Imputación de valores faltantes.
-    - Codificación de variables categóricas si aplica.
-    - División en conjuntos de entrenamiento, validación y test.
+Construir un modelo de predicción robusto que permita anticipar las ventas del próximo mes utilizando datos históricos. Las predicciones pueden usarse para:
 
-## 2. Análisis Exploratorio de Datos (EDA)
-- Análisis visual y estadístico de distribución de ventas.
-- Evaluación de correlaciones entre variables predictoras y objetivo.
-- Agrupamientos temporales: comparativas entre días hábiles, festivos y fines de semana.
-- Identificación de outliers o patrones estacionales.
-
-## 3. Entrenamiento de Modelos Base
-- Modelos evaluados:
-    - `LinearRegression()`
-    - `DecisionTreeRegressor()`
-    - `RandomForestRegressor()`
-    - *(opcional: agregar Lasso, XGBoost, etc.)*
-- Métricas:
-    - Coeficiente de determinación: R²
-    - Error cuadrático medio (RMSE)
-    - Error absoluto medio (MAE)
-- Técnicas:
-    - Búsqueda de hiperparámetros (`GridSearchCV` / `RandomizedSearchCV`)
-    - Validación cruzada (`cross_val_score`)
-
-## 4. Evaluación y Visualización
-- Generación de reportes con métricas para cada modelo.
-- Gráficos de comparación: ventas reales vs predichas.
-- Análisis de errores por categoría y por horizonte temporal.
-
-## 5. Empaquetado del Modelo
-- Serialización del mejor modelo (`joblib` o `pickle`).
-- Exportación de métricas y visualizaciones.
-- Generación de archivo `requirements.txt` y documentación del entorno virtual.
-
-## 6. Preparación para Producción (MLOps)
-- Scripts de inferencia reutilizables (`predict.py`)
-- Interfaz REST o CLI para consultas.
-- Documentación técnica y funcional en README.md
-- (Opcional) Integración con `MLflow` para seguimiento de experimentos.
-- (Opcional) Despliegue en contenedor Docker / pipeline CI/CD.
-
--------------------------------------------------------------------------------
-🎯 OBJETIVO DEL MODELO
-Predecir el total de ventas para el mes siguiente en función de variables históricas,
-lo que permitirá a la tienda:
-- Optimizar su inventario.
-- Definir estrategias promocionales.
+- Optimizar la gestión de inventario.
+- Planificar promociones.
 - Asignar personal de forma eficiente.
 
--------------------------------------------------------------------------------
-🧾 NOTAS ADICIONALES
-- Enfocado en reproducibilidad, modularidad y trazabilidad.
-- Compatible con flujos de trabajo de ciencia de datos y arquitectura MLOps.
-- Código limpio, comentado y preparado para pruebas automatizadas.
+---
+
+## ⚙️ 1. DAG de Entrenamiento del Modelo
+
+El flujo de entrenamiento está organizado como un DAG que asegura la ejecución ordenada, reproducible y escalable del modelo. Considerando que se trata de una única localidad, se entrena un único modelo sobre un único conjunto de datos.
+
+### Estructura del DAG:
+
+1. **Carga de datos desde MinIO**
+   - Descarga del archivo `Ventas.csv` desde un bucket definido.
+
+2. **Preprocesamiento**
+   - Conversión de fechas.
+   - Normalización de variables numéricas mediante `MinMaxScaler`.
+
+3. **División del dataset**
+   - Separación en conjuntos de entrenamiento y prueba (e.g., 70/30).
+
+4. **Entrenamiento del modelo**
+   - Modelado con regresión lineal o técnica definida.
+   - Evaluación con métricas como MAE y MSE.
+
+5. **Registro del modelo**
+   - Persistencia del modelo entrenado.
+   - Generación de artefactos para visualización.
+
+---
+
+## ☁️ 2. DAG de Interacción con MinIO
+
+MinIO se utiliza como almacenamiento objeto para contener tanto los datos como los modelos y artefactos resultantes del entrenamiento. Se utilizan rutas bien definidas para garantizar trazabilidad y versionado.
+
+### Flujo de integración con MinIO:
+
+1. **Subida inicial de datos**
+   - Se almacena el dataset `Ventas.csv` en un bucket específico (por ejemplo, `dataset-predicciones/ventas/`).
+
+2. **Lectura en tiempo de ejecución**
+   - El DAG de entrenamiento descarga el archivo directamente desde MinIO utilizando las credenciales del entorno de ejecución.
+
+3. **Almacenamiento de artefactos**
+   - El modelo entrenado (`modelo.pkl`) y los gráficos de validación se suben a un bucket de resultados (`modelos/ventas/`).
+
+4. **Posible futura automatización**
+   - El DAG podría incorporar validación automática y reentrenamiento en función de nuevos datos subidos al bucket.
+
+---
+
+## 📁 Estructura del Proyecto
+
+```bash
+prediccion-ventas/
+├── 📂 Datos/                      # Contiene datos crudos (opcional si se usa MinIO)
+├── 📂 dags/                       # DAGs de entrenamiento y carga
+├── 📂 modelos/                    # Modelos entrenados
+├── 📂 artefactos/                # Métricas, visualizaciones, registros
+├── 📜 prediccion_ventas.ipynb    # Notebook exploratorio y de prueba
+├── 📜 README.md                   # Este archivo

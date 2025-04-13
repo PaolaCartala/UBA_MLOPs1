@@ -3,6 +3,14 @@
 **Implementación de un sistema productivo de predicción de ventas con MLOps**
 
 ---
+## Miembros
+
+- Paola Cartalá
+- Adrian Lapaz Olveira
+- Gastón Schvarchman
+- Cristian Marino
+
+---
 
 ## Modelo base
 

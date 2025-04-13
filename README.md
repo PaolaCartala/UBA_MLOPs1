@@ -93,7 +93,7 @@ Las siguientes figuras se producen y almacenan en `./Salidas`:
 ```bash
 prediccion-ventas/
 ├── 📂 Datos/                      # Datos crudos (opcional si se usa MinIO)
-├── 📂 Mdelos/                    # Modelos entrenados (.pkl)
-├── 📂 Salidas/                   # Figuras generadas desde notebook
-├── 📜 prediccion_ventas.ipynb    # Notebook exploratorio y de pruebas
+├── 📂 Modelos/                    # Modelos entrenados (.pkl)
+├── 📂 Salidas/                    # Figuras generadas desde notebook
+├── 📜 prediccion_ventas.ipynb     # Notebook exploratorio y de pruebas
 ├── 📜 README.md                   # Este archivo

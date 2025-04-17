@@ -7,10 +7,11 @@ import boto3
 from io import BytesIO
 
 @dag(
-    schedule_interval=None,
+    schedule_interval="@once",
     start_date=days_ago(1),
     catchup=False,
-    tags=["etl", "ventas"]
+    tags=["etl", "ventas"],
+    is_paused_upon_creation=False
 )
 def etl_proceso_ventas():
 

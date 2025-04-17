@@ -26,7 +26,7 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - backend
-      
+
   airflow-init:
     build: ./dockerfiles/airflow
     container_name: airflow_init
@@ -88,6 +88,24 @@ services:
     command: scheduler
     networks:
       - backend
+      
+  create_s3_buckets:
+    image: minio/mc:latest
+    container_name: minio_create_bucket
+    depends_on:
+      - s3
+    entrypoint: >
+      /bin/sh -c '
+      sleep 5;
+      /usr/bin/mc alias set s3 http://s3:9000 minio minio123;
+      /usr/bin/mc mb s3/data || true;
+      /usr/bin/mc policy set public s3/data;
+      exit 0;
+      '
+    networks:
+      - backend
+    profiles:
+      - all
 
 volumes:
   db_data:
@@ -95,3 +113,4 @@ volumes:
 
 networks:
   backend:
+

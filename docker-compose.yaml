@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./mlflow.sql:/docker-entrypoint-initdb.d/mlflow.sql
     networks:
       - backend
 
@@ -100,12 +101,30 @@ services:
       /usr/bin/mc alias set s3 http://s3:9000 minio minio123;
       /usr/bin/mc mb s3/data || true;
       /usr/bin/mc policy set public s3/data;
+      /usr/bin/mc mb s3/mlflow || true;
+      /usr/bin/mc policy set public s3/mlflow;
       exit 0;
       '
     networks:
       - backend
     profiles:
       - all
+  mlflow:
+    build: ./dockerfiles/mlflow
+    image: mlflow
+    container_name: mlflow
+    depends_on:
+      - postgres
+      - s3
+    environment:
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio123
+      - MLFLOW_S3_ENDPOINT_URL=http://s3:9000
+    ports:
+      - "5000:5000"
+    networks:
+      - backend    
+  
 
 volumes:
   db_data:

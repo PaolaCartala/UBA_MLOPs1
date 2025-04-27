@@ -5,7 +5,8 @@ import boto3
 import pandas as pd
 from io import BytesIO
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import GridSearchCV
 import mlflow
 from mlflow.tracking import MlflowClient
 import mlflow.sklearn
@@ -31,7 +32,7 @@ def load_dataset_from_minio(file_name):
     return pd.read_csv(BytesIO(obj['Body'].read()))
 
 def train_sales_model(**kwargs):
-    # Cargar datasets
+# Cargar datasets
     train_df = load_dataset_from_minio(TRAIN_FILE)
     test_df = load_dataset_from_minio(TEST_FILE)
 
@@ -46,26 +47,62 @@ def train_sales_model(**kwargs):
     mlflow.set_experiment("Prediccion de Ventas")
 
     with mlflow.start_run() as run:
-        params = {"n_estimators": 100, "random_state": 42}
-        model = RandomForestRegressor(**params)
-        model.fit(X_train, y_train)
-        predictions = model.predict(X_test)
-        rmse = mean_squared_error(y_test, predictions, squared=False)
+        # Definir la grilla de hiperparámetros
+        param_grid = {
+            "n_estimators":      [100, 200],
+            "max_depth":         [None, 10, 20],
+            "min_samples_split": [2, 5]
+        }
+
+        # GridSearch con validación cruzada
+        grid = GridSearchCV(
+            RandomForestRegressor(random_state=42),
+            param_grid,
+            cv=5,
+            n_jobs=-1,
+            scoring="neg_mean_squared_error"
+        )
+        grid.fit(X_train, y_train)
+        best_model = grid.best_estimator_
+
+        # Métricas
+        cv_mse   = -grid.best_score_
+        cv_rmse  = cv_mse ** 0.5
+        y_pred   = best_model.predict(X_test)
+        test_mse = mean_squared_error(y_test, y_pred)
+        test_rmse = test_mse ** 0.5
+        test_r2  = r2_score(y_test, y_pred)
 
         # Log en MLflow
-        mlflow.log_params(params)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.sklearn.log_model(model, artifact_path="modelo_random_forest")
+        mlflow.log_params(grid.best_params_)
+        mlflow.log_metric("cv_mse", cv_mse)
+        mlflow.log_metric("cv_rmse", cv_rmse)
+        mlflow.log_metric("mse", test_mse)
+        mlflow.log_metric("rmse", test_rmse)
+        mlflow.log_metric("r2", test_r2)
+        mlflow.sklearn.log_model(best_model, artifact_path="modelo_random_forest")
 
-        # Registrar el modelo en el registry
-        mlflow.register_model(
-            model_uri=f"runs:/{run.info.run_id}/modelo_random_forest",
-            name=MODEL_NAME
+        run_id = run.info.run_id
+        mlflow.end_run()
+
+        # Registrar modelo en el registry
+        client = MlflowClient()
+        
+        try:
+            client.get_registered_model(MODEL_NAME)
+        except mlflow.exceptions.RestException as e:
+            if e.error_code == "RESOURCE_DOES_NOT_EXIST":
+                client.create_registered_model(MODEL_NAME)
+
+        client.create_model_version(
+            name=MODEL_NAME,
+            source=f"{run.info.artifact_uri}/modelo_random_forest",
+            run_id=run_id
         )
 
-        # Guardar info del run_id para la siguiente tarea
-        kwargs['ti'].xcom_push(key='challenger_run_id', value=run.info.run_id)
-        kwargs['ti'].xcom_push(key='challenger_rmse', value=rmse)
+        # Guardar el run_id y rmse para el siguiente task
+        kwargs['ti'].xcom_push(key='challenger_run_id', value=run_id)
+        kwargs['ti'].xcom_push(key='challenger_rmse', value=test_rmse)
 
 def compare_and_promote_model(**kwargs):
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -97,6 +134,11 @@ def compare_and_promote_model(**kwargs):
         # Obtener el RMSE del champion
         champion_metrics = client.get_run(champion.run_id).data.metrics
         champion_rmse = champion_metrics.get("rmse")
+
+        if champion_rmse is None:
+            print("⚠️ Champion no tiene RMSE registrado. Promoviendo challenger a Production...")
+            client.transition_model_version_stage(name=MODEL_NAME, version=challenger_version, stage="Production")
+            return
 
         print(f"Champion RMSE: {champion_rmse} | Challenger RMSE: {challenger_rmse}")
 

@@ -22,6 +22,16 @@ MLFLOW_TRACKING_URI = "http://mlflow:5000"
 
 # --- Funciones auxiliares ---
 def load_dataset_from_minio(file_name):
+    """
+    Carga un archivo CSV desde MinIO y devuelve un DataFrame de pandas.
+
+    Args:
+        file_name (str): Nombre del archivo CSV a cargar desde el bucket configurado.
+
+    Returns:
+        pd.DataFrame: DataFrame con los datos cargados desde MinIO.
+    """
+
     s3 = boto3.client(
         "s3",
         endpoint_url="http://s3:9000",
@@ -32,7 +42,20 @@ def load_dataset_from_minio(file_name):
     return pd.read_csv(BytesIO(obj['Body'].read()))
 
 def train_sales_model(**kwargs):
-# Cargar datasets
+    """
+    Entrena un modelo de RandomForestRegressor utilizando GridSearchCV y loguea la ejecución en MLflow.
+
+    - Carga los datasets de entrenamiento y prueba desde MinIO.
+    - Realiza búsqueda de hiperparámetros con validación cruzada.
+    - Calcula y loguea métricas (MSE, RMSE, R2) en MLflow.
+    - Registra el modelo entrenado en el Model Registry de MLflow.
+    - Envía el run_id y el RMSE del challenger al siguiente task mediante XCom.
+
+    Args:
+        kwargs (dict): Contexto de Airflow que incluye `ti` (task instance) para usar XCom.
+    """
+    
+    # Cargar datasets
     train_df = load_dataset_from_minio(TRAIN_FILE)
     test_df = load_dataset_from_minio(TEST_FILE)
 
@@ -105,6 +128,18 @@ def train_sales_model(**kwargs):
         kwargs['ti'].xcom_push(key='challenger_rmse', value=test_rmse)
 
 def compare_and_promote_model(**kwargs):
+    """
+    Compara el modelo challenger entrenado con el modelo champion actual en producción.
+
+    - Obtiene el RMSE del challenger desde XCom.
+    - Recupera el modelo champion actual desde el Model Registry de MLflow.
+    - Si el challenger tiene mejor RMSE que el champion, lo promueve a Production y archiva el anterior.
+    - Si no existe un champion, promueve directamente el challenger.
+
+    Args:
+        kwargs (dict): Contexto de Airflow que incluye `ti` (task instance) para usar XCom.
+    """
+
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     client = MlflowClient()
 

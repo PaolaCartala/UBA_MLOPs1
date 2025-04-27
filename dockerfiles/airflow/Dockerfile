@@ -9,3 +9,5 @@ RUN apt-get update \
 USER airflow
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache-dir --user -r /requirements.txt
+
+ENV AIRFLOW__WEBSERVER__SECRET_KEY=51905fa766adeb2087a2ea175b85d69c

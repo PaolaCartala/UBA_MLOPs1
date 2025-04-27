@@ -1,8 +1,7 @@
 from airflow.decorators import dag, task
 from airflow.utils.dates import days_ago
-from datetime import timedelta
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import boto3
 from io import BytesIO
@@ -15,9 +14,23 @@ from io import BytesIO
     is_paused_upon_creation=False
 )
 def etl_proceso_ventas():
-
+    """
+    1. Realiza proceso de limpieza del dataset.
+    2. Genera train.csv y test.csv en MinIO.
+    """
+    
     @task()
     def cargar_y_guardar_en_minio():
+        """
+        1. Lee '/opt/airflow/data/ventas.csv'.
+        2. Elimina nulos. 
+        3. Convierte 'Fecha' a datetime.
+        4. Split train/test (70/30).
+        5. Elimina outliers en train (IQR).
+        6. Escala features con StandardScaler.
+        7. Sube 'train.csv' y 'test.csv' al bucket 'data' en MinIO.
+        """
+    
         # Leer CSV local montado en el contenedor
         df = pd.read_csv("/opt/airflow/data/ventas.csv")
         
@@ -51,13 +64,6 @@ def etl_proceso_ventas():
             aws_access_key_id="minio",
             aws_secret_access_key="minio123"
         )
-
-        # (Opcional) Guardar el escalador en MinIO para inferencia
-        # import joblib
-        # buffer_escalador = BytesIO()
-        # joblib.dump(escalador, buffer_escalador)
-        # buffer_escalador.seek(0)
-        # s3.put_object(Bucket="modelos", Key="escalador.joblib", Body=buffer_escalador.getvalue())
 
         def subir_a_minio(df, bucket, key):
             buffer = BytesIO()

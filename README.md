@@ -1,89 +1,121 @@
-# Plan de Trabajo Final – OAA 1
+# Predicción de Ventas: Entrenamiento y Promoción Automática de Modelos
 
-**Implementación de un sistema productivo de predicción de ventas con MLOps**
+Este proyecto implementa un pipeline de Machine Learning para **predecir ventas** utilizando **Airflow** para la orquestación, **MinIO** como almacenamiento de datasets y artefactos, y **MLflow** para el tracking de experimentos y la gestión del modelo.
 
----
-## Miembros
+## Tabla de Contenidos
 
-- Paola Cartalá
-- Adrian Lapaz Olveira
-- Gastón Schvarchman
-- Cristian Marino
+- [Visión General](#visión-general)
+- [Tecnologías](#tecnologías)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Requisitos](#requisitos)
+- [Instalación](#instalación)
+- [Uso de Airflow: Orquestación del Pipeline](#uso-de-airflow-orquestación-del-pipeline)
+- [Uso de MLflow: Tracking y Registro de Modelos](#uso-de-mlflow-tracking-y-registro-de-modelos)
+- [FastAPI](#fastapi)
+- [Streamlit](#streamlit)
+- [Equipo](#equipo)
 
----
+## Visión General
 
-## Modelo base
+El objetivo es automatizar el proceso de:
 
-- El trabajo se basa en el modelo desarrollado en el notebook `prediccion_ventas.ipynb`.
-- El modelo predice ventas futuras en función de variables como tienda, producto, día de la semana, promociones, precios, entre otros.
-- Se trata de un problema de regresión.
+1. **Preprocesar los datos de ventas** (limpieza, escalado, división train/test).
+2. **Entrenar un modelo de Random Forest con búsqueda de hiperparámetros**.
+3. **Comparar el nuevo modelo (challenger) con el modelo en producción (champion)**.
+4. **Promover automáticamente el challenger a production si es mejor**.
 
----
+Todo esto gestionado mediante **Airflow**, con artefactos almacenados en **MinIO** y experimentos registrados en **MLflow**.
 
-## Componentes del sistema
+## Tecnologías
 
-### 1. Infraestructura con Docker Compose
+- [Apache Airflow](https://airflow.apache.org/): Orquestación de workflows.
+- [MinIO](https://min.io/): Almacenamiento de datasets y artefactos (compatible con S3).
+- [MLflow](https://mlflow.org/): Tracking de experimentos y gestión de modelos.
+- [scikit-learn](https://scikit-learn.org/): Entrenamiento y evaluación de modelos.
+- [Docker Compose](https://docs.docker.com/compose/): Contenerización del entorno.
 
-Se levantará un entorno productivo compuesto por múltiples servicios:
+## Estructura del Proyecto
 
-- **Apache Airflow**: para orquestar procesos de ETL y reentrenamiento del modelo.
-- **MLflow**: para trackear experimentos, métricas e hiperparámetros.
-- **MinIO**: para guardar datasets procesados, artefactos del modelo y metadatos.
-- **PostgreSQL**: base de datos utilizada por Airflow y MLflow.
-- **FastAPI**: para desplegar el modelo vía una API REST.
-- **Streamlit**: para ofrecer una interfaz visual amigable a usuarios no técnicos.
+```
+.
+├── dags/
+│   ├── etl_proceso_ventas.py           # DAG de ETL (limpieza, split, MinIO)
+│   └── retrain_and_challenge_champion.py # DAG de entrenamiento y promoción
+├── data/
+│   └── ventas.csv                      # Dataset original (local)
+├── mlflow/                             # Tracking server
+├── minio/                              # Almacenamiento MinIO
+├── docker-compose.yml                  # Configuración de servicios
+└── README.md                           # Documentación del proyecto
+```
 
----
+## Requisitos
 
-### 2. Entrenamiento y experimentación
+- Docker y Docker Compose instalados.
 
-- Se desarrollará un notebook basado en `prediccion_ventas.ipynb` para:
-  - Carga y limpieza de datos.
-  - Feature engineering y normalización.
-  - Entrenamiento del modelo.
-  - Optimización de hiperparámetros (Optuna, si aplica).
-  - Registro de experimentos, métricas y artefactos en MLflow.
-  - Almacenamiento de datos y archivo `data.json` en MinIO.
+## Instalación
 
----
+1. **Clonar el repositorio:**
 
-### 3. DAGs de Airflow
+```bash
+git clone <URL-del-repo>
+cd <nombre-del-repo>
+```
 
-#### `process_etl_sales_data.py`
-- Descarga o carga los datos brutos.
-- Realiza limpieza, creación de dummies y estandarización.
-- Divide en train/test y guarda en MinIO.
-- Loguea el proceso completo en MLflow.
+2. **Levantar los servicios:**
 
-#### `retrain_sales_model.py`
-- Carga los datos procesados desde MinIO.
-- Entrena un nuevo modelo ("challenger").
-- Evalúa contra el modelo actual ("champion").
-- Promueve al nuevo modelo si mejora la métrica.
+```bash
+docker compose --profile all up --build
+```
 
----
+Esto inicia:
+- Airflow (webserver, scheduler, workers)
+- MLflow Tracking Server (http://localhost:5000)
+- MinIO (http://localhost:9000, usuario: `minio`, clave: `minio123`)
+- FastApi
+- Streamlit
 
-### 4. API con FastAPI
+3. **Acceder a Airflow:**
 
-- Se implementará una API REST en FastAPI para exponer el modelo predictivo.
-- Se conectará con MLflow para obtener el modelo en producción y realizar inferencias.
+http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
 
-#### Endpoints tentativos:
+## Uso de Airflow: Orquestación del Pipeline
 
-- `GET /health`: Verifica que la API esté corriendo correctamente.
-- `POST /predict`: Recibe datos estructurados y devuelve la predicción del modelo.
-- `GET /docs`: Provee documentación interactiva (Swagger).
-- `GET /historical-predictions`: Devuelve un historial de predicciones realizadas.
+### DAGs disponibles
 
-La API se montará en el contenedor `fastapi` y expondrá el puerto `8800`.
+#### 1. `etl_proceso_ventas`
 
----
+- Este DAG **se ejecuta automáticamente** una única vez al iniciar el entorno.
+- Realiza el procesamiento de los datos originales (`ventas.csv`), aplicando limpieza, escalado y división entre **train** y **test** (70/30).
+- Los datasets generados (`train.csv` y `test.csv`) se almacenan en **MinIO** (bucket `data`).
+- **No es necesario ejecutarlo manualmente**, pero queda registrado en Airflow para referencia.
 
-### 5. Interfaz Web con Streamlit
+#### 2. `retrain_and_promote_sales_model`
 
-- Se desarrollará una app con Streamlit que consuma los endpoints de la API.
-- Permitirá a usuarios no técnicos:
-  - Cargar datos manualmente o desde archivos.
-  - Obtener predicciones de forma interactiva.
-  - Visualizar los resultados con gráficos dinámicos.
-- La app se ejecutará como servicio aparte y se conectará vía HTTP a la API de FastAPI.
+- Reentrena el modelo de predicción de ventas utilizando los datasets procesados.
+- Evalúa si el modelo nuevo (**challenger**) supera al actual (**champion**) en base al **RMSE** sobre el conjunto de **test**.
+- Si el challenger es mejor, lo promueve automáticamente a **Production** en **MLflow Model Registry**.
+
+## Uso de MLflow: Tracking y Registro de Modelos
+
+- Acceder a MLflow en: http://localhost:5000
+- Cada corrida registra:
+  - **Parámetros** del modelo seleccionado por GridSearch (n_estimators, max_depth, etc.).
+  - **Métricas**: `cv_mse`, `cv_rmse`, `test_mse`, `test_rmse`, `test_r2`.
+  - **Modelo entrenado** como artefacto.
+  - Registro de versiones en el **Model Registry** bajo el nombre `prediccion_ventas_model_prod`.
+
+## FastAPI
+
+
+
+## Streamlit
+
+
+
+## Equipo
+
+- Miembro 1: Paola Cartalá (paola.cartala@gmail.com)
+- Miembro 2: Gastón Schvarchman (gastonezequiel.sch@gmail.com)  
+- Miembro 3: Adrian Lapaz Olveira (adrianlapaz2010@gmail.com)  
+- Miembro 4: Cristian Marino (cristian.dam.marino@gmail.com)

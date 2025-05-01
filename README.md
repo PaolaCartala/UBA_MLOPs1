@@ -107,7 +107,33 @@ http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
 
 ## FastAPI
 
+El proyecto incluye una API desarrollada en **FastAPI** para realizar predicciones de ventas en tiempo real y acceder al historial de predicciones realizadas.
 
+### Funcionalidades
+
+- **Predicción de ventas**: Envía datos relevantes (día de la semana, promociones, días festivos) para obtener predicciones en tiempo real.
+- **Historial de predicciones**: Consulta las predicciones anteriores y sus detalles.
+- **Chequeo de salud**: Verifica el estado de la API.
+
+### Endpoints disponibles
+
+- `POST /predict`: Recibe datos para realizar una predicción y retorna la predicción generada.
+- `GET /history/`: Retorna el historial de predicciones.
+- `GET /history/{id}`: Retorna detalles específicos de una predicción pasada por su ID.
+- `GET /health`: Endpoint para verificar el estado de la API.
+
+### Ejecución de la API
+
+La API se levanta automáticamente al ejecutar los servicios mediante Docker Compose:
+
+```bash
+docker compose --profile all up --build
+```
+
+### Acceso
+
+- La API está disponible en: `http://localhost:8000`
+- Documentación interactiva de la API con Swagger UI: `http://localhost:8000/docs`
 
 ## Streamlit
 

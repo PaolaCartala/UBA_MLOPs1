@@ -158,6 +158,19 @@ services:
       - postgres
     networks:
       - backend
+  streamlit_app:
+    build:
+      context: ./streamlit_app
+      dockerfile: Dockerfile
+    container_name: streamlit_app
+    environment:
+      - API_URL=http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    networks:
+      - backend
 
 volumes:
   db_data:

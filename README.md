@@ -1,6 +1,13 @@
-# Predicción de Ventas: Entrenamiento y Promoción Automática de Modelos
+# Predicción de Ventas: Entrenamiento y Promoción Automática de Modelos, API REST y UI Interactiva con Docker
 
-Este proyecto implementa un pipeline de Machine Learning para **predecir ventas** utilizando **Airflow** para la orquestación, **MinIO** como almacenamiento de datasets y artefactos, y **MLflow** para el tracking de experimentos y la gestión del modelo.
+Este proyecto implementa un flujo de trabajo completo para **predecir ventas** que incluye:
+
+1. **Orquestación de ETL y retraining** con **Apache Airflow**.  
+2. **Almacenamiento de datos y artefactos** en **MinIO** (compatible con S3).  
+3. **Tracking de experimentos y gestión de modelos** en **MLflow**.  
+4. **API REST** para predicciones en tiempo real y acceso al historial, construida con **FastAPI**.  
+5. **Interfaz gráfica multipágina** para consultas y documentación, desarrollada con **Streamlit**.  
+6. **Contenerización y despliegue unificado** mediante **Docker Compose** (perfiles para todos los servicios).
 
 ## Tabla de Contenidos
 
@@ -12,7 +19,7 @@ Este proyecto implementa un pipeline de Machine Learning para **predecir ventas*
 - [Uso de Airflow: Orquestación del Pipeline](#uso-de-airflow-orquestación-del-pipeline)
 - [Uso de MLflow: Tracking y Registro de Modelos](#uso-de-mlflow-tracking-y-registro-de-modelos)
 - [FastAPI](#fastapi)
-- [Streamlit](#streamlit)
+- [Streamlit App](#streamlit-app)
 - [Equipo](#equipo)
 
 ## Visión General
@@ -33,20 +40,34 @@ Todo esto gestionado mediante **Airflow**, con artefactos almacenados en **MinIO
 - [MLflow](https://mlflow.org/): Tracking de experimentos y gestión de modelos.
 - [scikit-learn](https://scikit-learn.org/): Entrenamiento y evaluación de modelos.
 - [Docker Compose](https://docs.docker.com/compose/): Contenerización del entorno.
+- [FastAPI](https://fastapi.tiangolo.com/): Creación de la API REST.
+- [Streamlit](https://streamlit.io/): Interfaz gráfica de usuario.
 
 ## Estructura del Proyecto
 
 ```
 .
-├── dags/
-│   ├── etl_proceso_ventas.py           # DAG de ETL (limpieza, split, MinIO)
-│   └── retrain_and_challenge_champion.py # DAG de entrenamiento y promoción
-├── data/
-│   └── ventas.csv                      # Dataset original (local)
-├── mlflow/                             # Tracking server
-├── minio/                              # Almacenamiento MinIO
-├── docker-compose.yml                  # Configuración de servicios
-└── README.md                           # Documentación del proyecto
+├── airflow/
+│   ├── dags/
+│   │   ├── etl_proceso_ventas.py           # DAG de ETL (limpieza, split, MinIO)
+│   │   └── retrain_and_challenge_champion.py # DAG de entrenamiento y promoción
+│   └── data/
+│       └── ventas.csv                      # Dataset original (local)
+├── api/
+│   ├── models/
+│   ├── routers/
+│   ├── schemas/
+│   ├── services/
+│   ├── Dockerfile
+│   └── requirements.txt
+├── mlflow/                                 # Tracking server
+├── minio/                                  # Almacenamiento MinIO
+├── streamlit_app/
+│   ├── main.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── docker-compose.yml                      # Configuración de servicios
+└── README.md                               # Documentación del proyecto
 ```
 
 ## Requisitos
@@ -72,7 +93,7 @@ Esto inicia:
 - Airflow (webserver, scheduler, workers)
 - MLflow Tracking Server (http://localhost:5000)
 - MinIO (http://localhost:9000, usuario: `minio`, clave: `minio123`)
-- FastApi
+- FastAPI
 - Streamlit
 
 3. **Acceder a Airflow:**
@@ -107,7 +128,7 @@ http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
 
 ## FastAPI
 
-El proyecto incluye una API desarrollada en **FastAPI** para realizar predicciones de ventas en tiempo real y acceder al historial de predicciones realizadas.
+El proyecto incluye una API desarrollada en **[FastAPI](https://fastapi.tiangolo.com/)** para realizar predicciones de ventas en tiempo real y acceder al historial de predicciones realizadas.
 
 ### Funcionalidades
 
@@ -117,31 +138,33 @@ El proyecto incluye una API desarrollada en **FastAPI** para realizar prediccion
 
 ### Endpoints disponibles
 
-- `POST /predict`: Recibe datos para realizar una predicción y retorna la predicción generada.
-- `GET /history/`: Retorna el historial de predicciones.
-- `GET /history/{id}`: Retorna detalles específicos de una predicción pasada por su ID.
-- `GET /health`: Endpoint para verificar el estado de la API.
-
-### Ejecución de la API
-
-La API se levanta automáticamente al ejecutar los servicios mediante Docker Compose:
-
-```bash
-docker compose --profile all up --build
-```
+- **Base URL**: http://localhost:8000
+- **Swagger UI**: http://localhost:8000/docs
+- **Endpoints Principales**:
+  - `GET /health` — Verifica estado del servicio.
+  - `POST /predict` — Recibe JSON con `{"DíaDeLaSemana":1,"Promociones":0,"Festivo":1}` y devuelve predicción.
+  - `GET  /history/` — Lista historial de predicciones.
+  - `GET  /history/{id}` — Detalle de una predicción.
 
 ### Acceso
 
-- La API está disponible en: `http://localhost:8000`
-- Documentación interactiva de la API con Swagger UI: `http://localhost:8000/docs`
+- API disponible en: `http://localhost:8000`
+- Documentación interactiva (Swagger UI): `http://localhost:8000/docs`
 
-## Streamlit
+## Streamlit App
 
+El proyecto incluye una interfaz gráfica desarrollada con **[Streamlit](https://streamlit.io/)**.
 
+### Accesos
+
+- Accede a **http://localhost:8501**.
+- Navegación por pestañas: **Predictions**, **History**, **Docs**.
+- Ingresa parámetros en pantalla para hacer peticiones a la API.
+- Visualiza historial y documentación embebida.
 
 ## Equipo
 
-- Miembro 1: Paola Cartalá (paola.cartala@gmail.com)
-- Miembro 2: Gastón Schvarchman (gastonezequiel.sch@gmail.com)  
-- Miembro 3: Adrian Lapaz Olveira (adrianlapaz2010@gmail.com)  
-- Miembro 4: Cristian Marino (cristian.dam.marino@gmail.com)
+- Paola Cartalá (paola.cartala@gmail.com)
+- Gastón Schvarchman (gastonezequiel.sch@gmail.com)  
+- Adrian Lapaz Olveira (adrianlapaz2010@gmail.com)  
+- Cristian Marino (cristian.dam.marino@gmail.com)

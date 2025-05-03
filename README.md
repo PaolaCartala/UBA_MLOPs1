@@ -15,7 +15,7 @@ Este proyecto implementa un flujo de trabajo completo para **predecir ventas** q
 - [Tecnologías](#tecnologías)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Requisitos](#requisitos)
-- [Instalación](#forma-de-uso)
+- [Forma de uso](#forma-de-uso)
 - [Detalle Uso de Airflow: Orquestación del Pipeline](#detalle-uso-de-airflow-orquestación-del-pipeline)
 - [Detalle Uso de MLflow: Tracking y Registro de Modelos](#detalle-uso-de-mlflow-tracking-y-registro-de-modelos)
 - [FastAPI](#fastapi)

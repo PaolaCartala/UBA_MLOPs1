@@ -119,8 +119,7 @@ services:
       '
     networks:
       - backend
-    profiles:
-      - all
+
   mlflow:
     build: ./dockerfiles/mlflow
     image: mlflow

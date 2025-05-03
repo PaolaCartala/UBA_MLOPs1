@@ -2,8 +2,11 @@ from typing import Any, Dict, Union
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.exceptions import RestException
 import pandas as pd
 from api.models.schemas import PredictionInput
+from fastapi import HTTPException
+
 
 # --- URI fija al modelo en producción ---
 MLFLOW_MODEL_URI = "models:/prediccion_ventas_model_prod/1"
@@ -13,13 +16,16 @@ mlflow.set_tracking_uri("http://mlflow:5000")
 from sklearn.tree import DecisionTreeRegressor
 DecisionTreeRegressor.monotonic_cst = None
 
-model = mlflow.pyfunc.load_model(MLFLOW_MODEL_URI)
-
 
 def predict_sales(
     input_data: Union[PredictionInput, Dict[str, Any]]
 ) -> float:
     """Obtiene la predicción de ventas a partir de la entrada."""
+    try:
+        model = mlflow.pyfunc.load_model(MLFLOW_MODEL_URI)
+    except RestException:
+        raise HTTPException(status_code=503, detail="Modelo no disponible en MLflow todavía.")
+
     if hasattr(input_data, "dict"):
         data: Dict[str, Any] = input_data.dict(by_alias=True)
     else:

@@ -15,9 +15,9 @@ Este proyecto implementa un flujo de trabajo completo para **predecir ventas** q
 - [Tecnologías](#tecnologías)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Requisitos](#requisitos)
-- [Instalación](#instalación)
-- [Uso de Airflow: Orquestación del Pipeline](#uso-de-airflow-orquestación-del-pipeline)
-- [Uso de MLflow: Tracking y Registro de Modelos](#uso-de-mlflow-tracking-y-registro-de-modelos)
+- [Instalación](#forma-de-uso)
+- [Detalle Uso de Airflow: Orquestación del Pipeline](#detalle-uso-de-airflow-orquestación-del-pipeline)
+- [Detalle Uso de MLflow: Tracking y Registro de Modelos](#detalle-uso-de-mlflow-tracking-y-registro-de-modelos)
 - [FastAPI](#fastapi)
 - [Streamlit App](#streamlit-app)
 - [Equipo](#equipo)
@@ -30,6 +30,8 @@ El objetivo es automatizar el proceso de:
 2. **Entrenar un modelo de Random Forest con búsqueda de hiperparámetros**.
 3. **Comparar el nuevo modelo (challenger) con el modelo en producción (champion)**.
 4. **Promover automáticamente el challenger a production si es mejor**.
+5. **Exponer el modelo para realizar predicciones en tiempo real mediante FastAPI**.
+6. **Visualizar resultados y métricas a través de Streamlit**.
 
 Todo esto gestionado mediante **Airflow**, con artefactos almacenados en **MinIO** y experimentos registrados en **MLflow**.
 
@@ -74,33 +76,58 @@ Todo esto gestionado mediante **Airflow**, con artefactos almacenados en **MinIO
 
 - Docker y Docker Compose instalados.
 
-## Instalación
+## Forma de uso
 
-1. **Clonar el repositorio:**
+A continuación se detalla el paso a paso necesario para utilizar el servicio completo del proyecto:
+
+### 1. Instalación
+
+Primero, es necesario clonar el repositorio y levantar los servicios necesarios utilizando Docker Compose:
 
 ```bash
 git clone <URL-del-repo>
 cd <nombre-del-repo>
+docker compose up --build
 ```
 
-2. **Levantar los servicios:**
+Esto iniciará los siguientes servicios:
 
-```bash
-docker compose --profile all up --build
-```
+- Airflow (webserver, scheduler)
+- MLflow Tracking Server: [http://localhost:5000](http://localhost:5000)
+- MinIO: [http://localhost:9000](http://localhost:9000) (usuario: `minio`, contraseña: `minio123`)
+- API REST con FastAPI: [http://localhost:8000](http://localhost:8000)
+- Interfaz gráfica con Streamlit: [http://localhost:8501](http://localhost:8501)
 
-Esto inicia:
-- Airflow (webserver, scheduler, workers)
-- MLflow Tracking Server (http://localhost:5000)
-- MinIO (http://localhost:9000, usuario: `minio`, clave: `minio123`)
-- FastAPI
-- Streamlit
+### 2. Ingreso a Airflow y corrida del DAG de entrenamiento
 
-3. **Acceder a Airflow:**
+Acceder a la interfaz de Airflow:
 
-http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
+- URL: [http://localhost:8080](http://localhost:8080)
+- Usuario: `airflow`
+- Contraseña: `airflow`
 
-## Uso de Airflow: Orquestación del Pipeline
+Una vez dentro:
+
+- Verificar que el DAG `retrain_and_promote_sales_model` esté habilitado.
+- Ejecutar manualmente ese DAG para entrenar el modelo por primera vez y registrarlo en MLflow.
+
+> El DAG `etl_proceso_ventas` se ejecuta automáticamente una única vez al iniciar el entorno. No requiere ser ejecutado manualmente.
+
+### 3. Ingreso a Streamlit e interacción con la interfaz
+
+Acceder a la aplicación en:
+
+- [http://localhost:8501](http://localhost:8501)
+
+En la interfaz:
+
+- Usar la pestaña **Predictions** para cargar datos y obtener predicciones en tiempo real.
+- Navegar a **History** para visualizar las predicciones pasadas.
+- Consultar **Docs** para ver la documentación embebida sobre el sistema y los endpoints de la API.
+
+> La interfaz Streamlit se comunica directamente con la API de FastAPI levantada en [http://localhost:8000](http://localhost:8000).
+
+## Detalle Uso de Airflow: Orquestación del Pipeline
 
 ### DAGs disponibles
 
@@ -117,7 +144,7 @@ http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
 - Evalúa si el modelo nuevo (**challenger**) supera al actual (**champion**) en base al **RMSE** sobre el conjunto de **test**.
 - Si el challenger es mejor, lo promueve automáticamente a **Production** en **MLflow Model Registry**.
 
-## Uso de MLflow: Tracking y Registro de Modelos
+## Detalle Uso de MLflow: Tracking y Registro de Modelos
 
 - Acceder a MLflow en: http://localhost:5000
 - Cada corrida registra:
@@ -128,7 +155,7 @@ http://localhost:8080 (usuario: `airflow`, clave: `airflow`)
 
 ## FastAPI
 
-El proyecto incluye una API desarrollada en **[FastAPI](https://fastapi.tiangolo.com/)** para realizar predicciones de ventas en tiempo real y acceder al historial de predicciones realizadas.
+El proyecto incluye una API desarrollada en **FastAPI** para realizar predicciones de ventas en tiempo real y acceder al historial de predicciones realizadas.
 
 ### Funcionalidades
 
@@ -146,14 +173,9 @@ El proyecto incluye una API desarrollada en **[FastAPI](https://fastapi.tiangolo
   - `GET  /history/` — Lista historial de predicciones.
   - `GET  /history/{id}` — Detalle de una predicción.
 
-### Acceso
-
-- API disponible en: `http://localhost:8000`
-- Documentación interactiva (Swagger UI): `http://localhost:8000/docs`
-
 ## Streamlit App
 
-El proyecto incluye una interfaz gráfica desarrollada con **[Streamlit](https://streamlit.io/)**.
+El proyecto incluye una interfaz gráfica desarrollada con **Streamlit**.
 
 ### Accesos
 

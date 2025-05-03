@@ -119,8 +119,7 @@ services:
       '
     networks:
       - backend
-    profiles:
-      - all
+
   mlflow:
     build: ./dockerfiles/mlflow
     image: mlflow
@@ -136,12 +135,33 @@ services:
       - "5000:5000"
     networks:
       - backend    
-  
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: sales-api:latest
+    container_name: sales_api
+    environment:
+      - DATABASE_URL=sqlite:///./data/history.db
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio123
+      - MLFLOW_S3_ENDPOINT_URL=http://s3:9000
+    ports:
+      - "8000:8000"
+    volumes:
+      - api_data:/app/data
+    depends_on:
+      - mlflow
+      - s3
+      - postgres
+    networks:
+      - backend
 
 volumes:
   db_data:
   minio_data:
+  api_data:
 
 networks:
   backend:
-
